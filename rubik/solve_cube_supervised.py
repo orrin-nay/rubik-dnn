@@ -4,6 +4,7 @@ from supervised_model import make_model
 from tokenize_utils import tokenize_cube_state, detokenize_move
 import random
 from keras.models import load_model
+from termcolor import colored
 
 model = make_model()
 model.load_weights('../supervised_model.h5')
@@ -54,24 +55,19 @@ while not cube.is_solved():
     next_move = model.predict(np.array([current_state]))
     move = detokenize_move(next_move[0])
     cube_state_hash = str(cube) + move
+    # if cube_state_hash in previous_states:
+    #     for move_try in MOVES:
+    #         cube_state_hash = str(cube) + move_try
+    #         if cube_state_hash not in previous_states:
+    #             move = move_try
+    #             break
     if cube_state_hash in previous_states:
-        for move_try in MOVES:
-            cube_state_hash = str(cube) + move_try
-            if cube_state_hash not in previous_states:
-                move = move_try
-                break
-    if cube_state_hash in previous_states:
-        number_of_moves = 0
-        cube = random_cube(cube_shuffles)
-        previous_states = set()
-        print('stuck')
-        print('----------------------------------')
-        print(cube)
+        break
 
     previous_states.add(cube_state_hash)
     print_cube_in_grid(cube)
     print(move)
     cube.move(move)
+
+print_cube_in_grid(cube)
 print(number_of_moves)
-print(cube)
-print(move)
