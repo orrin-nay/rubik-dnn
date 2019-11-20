@@ -7,21 +7,26 @@ from optimize import optimize_moves
 
 SOLVED_CUBE_STR = "OOOOOOOOOYYYWWWGGGBBBYYYWWWGGGBBBYYYWWWGGGBBBRRRRRRRRR"
 
-MOVES = ["L", "R", "U", "D", "F", "B", "M", "E", "S"]
+MOVES = ["F", "U", "L", "R", "D", "B"]
 
-def random_cube():
+def random_cube(shuffle_count=100):
     """
     :return: A new scrambled Cube
     """
-    scramble_moves = " ".join(random.choice(MOVES) for _ in range(100))
-    a = Cube(SOLVED_CUBE_STR)
-    a.sequence(scramble_moves)
+    scramble_moves = " ".join(random.choice(MOVES) )
+    a = Cube()
+    for _ in range(shuffle_count):
+        move = random.choice(MOVES)
+        a.move(move)
     return a
 
 def run_case(args):
     C = random_cube()
     original = Cube(C)
     solver = Solver(C)
+
+    if args % 100000 == 0:
+        print(args[0])
 
     training_data = []
     try:

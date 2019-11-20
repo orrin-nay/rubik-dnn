@@ -1,335 +1,252 @@
-import string
-import textwrap
-
-from maths import Point, Matrix
-
-RIGHT = X_AXIS = Point(1, 0, 0)
-LEFT           = Point(-1, 0, 0)
-UP    = Y_AXIS = Point(0, 1, 0)
-DOWN           = Point(0, -1, 0)
-FRONT = Z_AXIS = Point(0, 0, 1)
-BACK           = Point(0, 0, -1)
-
-FACE = 'face'
-EDGE = 'edge'
-CORNER = 'corner'
-
-
-# 90 degree rotations in the XY plane. CW is clockwise, CC is counter-clockwise.
-ROT_XY_CW = Matrix(0, 1, 0,
-                   -1, 0, 0,
-                   0, 0, 1)
-ROT_XY_CC = Matrix(0, -1, 0,
-                   1, 0, 0,
-                   0, 0, 1)
-
-# 90 degree rotations in the XZ plane (around the y-axis when viewed pointing toward you).
-ROT_XZ_CW = Matrix(0, 0, -1,
-                   0, 1, 0,
-                   1, 0, 0)
-ROT_XZ_CC = Matrix(0, 0, 1,
-                   0, 1, 0,
-                   -1, 0, 0)
-
-# 90 degree rotations in the YZ plane (around the x-axis when viewed pointing toward you).
-ROT_YZ_CW = Matrix(1, 0, 0,
-                   0, 0, 1,
-                   0, -1, 0)
-ROT_YZ_CC = Matrix(1, 0, 0,
-                   0, 0, -1,
-                   0, 1, 0)
-
-def get_rot_from_face(face):
-    """
-    :param face: One of FRONT, BACK, LEFT, RIGHT, UP, DOWN
-    :return: A pair (CW, CC) given the clockwise and counterclockwise rotations for that face
-    """
-    if face == RIGHT:   return "R", "Ri"
-    elif face == LEFT:  return "L", "Li"
-    elif face == UP:    return "U", "Ui"
-    elif face == DOWN:  return "D", "Di"
-    elif face == FRONT: return "F", "Fi"
-    elif face == BACK:  return "B", "Bi"
-    return None
-
-class Piece(object):
-
-    def __init__(self, pos, colors):
-        """
-        :param pos: A tuple of integers (x, y, z) each ranging from -1 to 1
-        :param colors: A tuple of length three (x, y, z) where each component gives the color
-            of the side of the piece on that axis (if it exists), or None.
-        """
-        assert all(type(x) == int and x in (-1, 0, 1) for x in pos)
-        assert len(colors) == 3
-        self.pos = pos
-        self.colors = list(colors)
-        self._set_piece_type()
-
-    def __str__(self):
-        return "(%s %s, %s)" % (self.type, "".join(c for c in self.colors if c is not None), self.pos)
-
-    def _set_piece_type(self):
-        if self.colors.count(None) == 2:
-            self.type = FACE
-        elif self.colors.count(None) == 1:
-            self.type = EDGE
-        elif self.colors.count(None) == 0:
-            self.type = CORNER
-        else:
-            raise ValueError("Must have 1, 2, or 3 colors - given colors=%s" % self.colors)
-
-    def rotate(self, matrix):
-        """Apply the given rotation matrix to this piece."""
-        before = self.pos
-        self.pos = matrix * self.pos
-
-        # we need to swap the positions of two things in self.colors so colors appear
-        # on the correct faces. rot gives us the axes to swap between.
-        rot = self.pos - before
-        if not any(rot):
-            return  # no change occurred
-        if rot.count(0) == 2:
-            rot += matrix * rot
-
-        if rot.count(0) != 1:
-            print("before:", before)
-            print("self.pos:", self.pos)
-            print("rot:", rot)
-        assert rot.count(0) == 1
-
-        i, j = (i for i, x in enumerate(rot) if x != 0)
-        self.colors[i], self.colors[j] = self.colors[j], self.colors[i]
-
 
 class Cube(object):
-    """Stores Pieces which are addressed through an x-y-z coordinate system:
-        -x is the LEFT direction, +x is the RIGHT direction
-        -y is the DOWN direction, +y is the UP direction
-        -z is the BACK direction, +z is the FRONT direction
-    """
+    def __init__(self):
+        self.state = ['U','U','U','U','U','U','U','U','U','R','R','R','R','R','R','R','R','R','F','F','F','F','F','F','F','F','F','D','D','D','D','D','D','D','D','D','L','L','L','L','L','L','L','L','L','B','B','B','B','B','B','B','B','B']
+        self.solved = ''.join(self.state)
+        self.name_to_index = {
+            'U1': 0, 
+            'U2': 1, 
+            'U3': 2, 
+            'U4': 3, 
+            'U5': 4, 
+            'U6': 5, 
+            'U7': 6, 
+            'U8': 7, 
+            'U9': 8, 
+            'R1': 9, 
+            'R2': 10, 
+            'R3': 11, 
+            'R4': 12, 
+            'R5': 13, 
+            'R6': 14, 
+            'R7': 15, 
+            'R8': 16, 
+            'R9': 17, 
+            'F1': 18, 
+            'F2': 19, 
+            'F3': 20, 
+            'F4': 21, 
+            'F5': 22, 
+            'F6': 23, 
+            'F7': 24, 
+            'F8': 25, 
+            'F9': 26, 
+            'D1': 27, 
+            'D2': 28, 
+            'D3': 29, 
+            'D4': 30, 
+            'D5': 31, 
+            'D6': 32, 
+            'D7': 33, 
+            'D8': 34, 
+            'D9': 35, 
+            'L1': 36, 
+            'L2': 37, 
+            'L3': 38, 
+            'L4': 39, 
+            'L5': 40, 
+            'L6': 41, 
+            'L7': 42, 
+            'L8': 43, 
+            'L9': 44, 
+            'B1': 45, 
+            'B2': 46, 
+            'B3': 47, 
+            'B4': 48, 
+            'B5': 49, 
+            'B6': 50, 
+            'B7': 51, 
+            'B8': 52, 
+            'B9': 53
+        }
+    def face_rotation(self, start):
+        state_copy = self.state.copy()
+        self.state[start] = state_copy[start + 6]
+        self.state[start + 1] = state_copy[start + 3]
+        self.state[start + 2] = state_copy[start]
+        self.state[start + 3] = state_copy[start + 7]
+        self.state[start + 5] = state_copy[start + 1]
+        self.state[start + 6] = state_copy[start + 8]
+        self.state[start + 7] = state_copy[start + 5]
+        self.state[start + 8] = state_copy[start + 2]
+    def rotate_three(self, f_0, f_1, f_2, f_3, f_4, f_5, f_6, f_7, f_8, f_9, f_10, f_11):
+        state_copy = self.state.copy()
+        self.state[f_0] = state_copy[f_9]
+        self.state[f_1] = state_copy[f_10]
+        self.state[f_2] = state_copy[f_11]
+        self.state[f_3] = state_copy[f_0]
+        self.state[f_4] = state_copy[f_1]
+        self.state[f_5] = state_copy[f_2]
+        self.state[f_6] = state_copy[f_3]
+        self.state[f_7] = state_copy[f_4]
+        self.state[f_8] = state_copy[f_5]
+        self.state[f_9] = state_copy[f_6]
+        self.state[f_10] = state_copy[f_7]
+        self.state[f_11] = state_copy[f_8]
 
-    def __from_cube__(self, c):
-        self.faces = [Piece(pos=Point(p.pos), colors=p.colors) for p in c.faces]
-        self.edges = [Piece(pos=Point(p.pos), colors=p.colors) for p in c.edges]
-        self.corners = [Piece(pos=Point(p.pos), colors=p.colors) for p in c.corners]
-        self.pieces = self.faces + self.edges + self.corners
+    def rotate_front(self):
+        self.face_rotation(self.name_to_index['F1'])
+        self.rotate_three(self.name_to_index['U7'],
+                        self.name_to_index['U8'],
+                        self.name_to_index['U9'],
+                        self.name_to_index['R1'],
+                        self.name_to_index['R4'],
+                        self.name_to_index['R7'],
+                        self.name_to_index['D3'],
+                        self.name_to_index['D2'],
+                        self.name_to_index['D1'],
+                        self.name_to_index['L9'],
+                        self.name_to_index['L6'],
+                        self.name_to_index['L3']
+                        )
+    def rotate_reverse_front(self):
+        self.rotate_front()
+        self.rotate_front()
+        self.rotate_front()
 
-    def __assert_data__(self):
-        assert len(self.pieces) == 26
-        assert all(p.type == FACE for p in self.faces)
-        assert all(p.type == EDGE for p in self.edges)
-        assert all(p.type == CORNER for p in self.corners)
+    def rotate_up(self):
+        self.face_rotation(self.name_to_index['U1'])
+        self.rotate_three(self.name_to_index['F3'],
+                        self.name_to_index['F2'],
+                        self.name_to_index['F1'],
+                        self.name_to_index['L3'],
+                        self.name_to_index['L2'],
+                        self.name_to_index['L1'],
+                        self.name_to_index['B3'],
+                        self.name_to_index['B2'],
+                        self.name_to_index['B1'],
+                        self.name_to_index['R3'],
+                        self.name_to_index['R2'],
+                        self.name_to_index['R1']
+                        )
+    def rotate_reverse_up(self):
+        self.rotate_up()
+        self.rotate_up()
+        self.rotate_up()
 
-    def __init__(self, cube_str):
-        """
-        cube_str looks like:
-                UUU                       0  1  2
-                UUU                       3  4  5
-                UUU                       6  7  8
-            LLL FFF RRR BBB      9 10 11 12 13 14 15 16 17 18 19 20
-            LLL FFF RRR BBB     21 22 23 24 25 26 27 28 29 30 31 32
-            LLL FFF RRR BBB     33 34 35 36 37 38 39 40 41 42 43 44
-                DDD                      45 46 47
-                DDD                      48 49 50
-                DDD                      51 52 53
-        Note that the back side is mirrored in the horizontal axis during unfolding.
-        Each 'sticker' must be a single character.
-        """
-        if isinstance(cube_str, Cube):
-            self.__from_cube__(cube_str)
-            return
+    def rotate_left(self):
+        self.face_rotation(self.name_to_index['L1'])
+        self.rotate_three(self.name_to_index['U1'],
+                        self.name_to_index['U4'],
+                        self.name_to_index['U7'],
+                        self.name_to_index['F1'],
+                        self.name_to_index['F4'],
+                        self.name_to_index['F7'],
+                        self.name_to_index['D1'],
+                        self.name_to_index['D4'],
+                        self.name_to_index['D7'],
+                        self.name_to_index['B9'],
+                        self.name_to_index['B6'],
+                        self.name_to_index['B3']
+                        )
+    def rotate_reverse_left(self):
+        self.rotate_left()
+        self.rotate_left()
+        self.rotate_left()
 
-        cube_str = "".join(x for x in cube_str if x not in string.whitespace)
-        assert len(cube_str) == 54
-        self.faces = (
-            Piece(pos=RIGHT, colors=(cube_str[28], None, None)),
-            Piece(pos=LEFT,  colors=(cube_str[22], None, None)),
-            Piece(pos=UP,    colors=(None, cube_str[4],  None)),
-            Piece(pos=DOWN,  colors=(None, cube_str[49], None)),
-            Piece(pos=FRONT, colors=(None, None, cube_str[25])),
-            Piece(pos=BACK,  colors=(None, None, cube_str[31])))
-        self.edges = (
-            Piece(pos=RIGHT + UP,    colors=(cube_str[16], cube_str[5], None)),
-            Piece(pos=RIGHT + DOWN,  colors=(cube_str[40], cube_str[50], None)),
-            Piece(pos=RIGHT + FRONT, colors=(cube_str[27], None, cube_str[26])),
-            Piece(pos=RIGHT + BACK,  colors=(cube_str[29], None, cube_str[30])),
-            Piece(pos=LEFT + UP,     colors=(cube_str[10], cube_str[3], None)),
-            Piece(pos=LEFT + DOWN,   colors=(cube_str[34], cube_str[48], None)),
-            Piece(pos=LEFT + FRONT,  colors=(cube_str[23], None, cube_str[24])),
-            Piece(pos=LEFT + BACK,   colors=(cube_str[21], None, cube_str[32])),
-            Piece(pos=UP + FRONT,    colors=(None, cube_str[7], cube_str[13])),
-            Piece(pos=UP + BACK,     colors=(None, cube_str[1], cube_str[19])),
-            Piece(pos=DOWN + FRONT,  colors=(None, cube_str[46], cube_str[37])),
-            Piece(pos=DOWN + BACK,   colors=(None, cube_str[52], cube_str[43])),
-        )
-        self.corners = (
-            Piece(pos=RIGHT + UP + FRONT,   colors=(cube_str[15], cube_str[8], cube_str[14])),
-            Piece(pos=RIGHT + UP + BACK,    colors=(cube_str[17], cube_str[2], cube_str[18])),
-            Piece(pos=RIGHT + DOWN + FRONT, colors=(cube_str[39], cube_str[47], cube_str[38])),
-            Piece(pos=RIGHT + DOWN + BACK,  colors=(cube_str[41], cube_str[53], cube_str[42])),
-            Piece(pos=LEFT + UP + FRONT,    colors=(cube_str[11], cube_str[6], cube_str[12])),
-            Piece(pos=LEFT + UP + BACK,     colors=(cube_str[9], cube_str[0], cube_str[20])),
-            Piece(pos=LEFT + DOWN + FRONT,  colors=(cube_str[35], cube_str[45], cube_str[36])),
-            Piece(pos=LEFT + DOWN + BACK,   colors=(cube_str[33], cube_str[51], cube_str[44])),
-        )
+    def rotate_right(self):
+        self.face_rotation(self.name_to_index['R1'])
+        self.rotate_three(self.name_to_index['F9'],
+                        self.name_to_index['F6'],
+                        self.name_to_index['F3'],
+                        self.name_to_index['U9'],
+                        self.name_to_index['U6'],
+                        self.name_to_index['U3'],
+                        self.name_to_index['B1'],
+                        self.name_to_index['B4'],
+                        self.name_to_index['B7'],
+                        self.name_to_index['D9'],
+                        self.name_to_index['D6'],
+                        self.name_to_index['D3']
+                        )
+    def rotate_reverse_right(self):
+        self.rotate_right()
+        self.rotate_right()
+        self.rotate_right()
 
-        self.pieces = self.faces + self.edges + self.corners
+    def rotate_down(self):
+        self.face_rotation(self.name_to_index['D1'])
+        self.rotate_three(self.name_to_index['F7'],
+                        self.name_to_index['F8'],
+                        self.name_to_index['F9'],
+                        self.name_to_index['R7'],
+                        self.name_to_index['R8'],
+                        self.name_to_index['R9'],
+                        self.name_to_index['B7'],
+                        self.name_to_index['B8'],
+                        self.name_to_index['B9'],
+                        self.name_to_index['L7'],
+                        self.name_to_index['L8'],
+                        self.name_to_index['L9']
+                        )
+    def rotate_reverse_down(self):
+        self.rotate_down()
+        self.rotate_down()
+        self.rotate_down()
 
-        self.__assert_data__()
+    def rotate_back(self):
+        self.face_rotation(self.name_to_index['B1'])
+        self.rotate_three(self.name_to_index['R9'],
+                        self.name_to_index['R6'],
+                        self.name_to_index['R3'],
+                        self.name_to_index['U3'],
+                        self.name_to_index['U2'],
+                        self.name_to_index['U1'],
+                        self.name_to_index['L1'],
+                        self.name_to_index['L4'],
+                        self.name_to_index['L7'],
+                        self.name_to_index['D7'],
+                        self.name_to_index['D8'],
+                        self.name_to_index['D9']
+                        )
+    def rotate_reverse_back(self):
+        self.rotate_back()
+        self.rotate_back()
+        self.rotate_back()
 
-    def is_solved(self):
-        def check(colors):
-            assert len(colors) == 9
-            return all(c == colors[0] for c in colors)
-        return (check([piece.colors[2] for piece in self._face(FRONT)]) and
-                check([piece.colors[2] for piece in self._face(BACK)]) and
-                check([piece.colors[1] for piece in self._face(UP)]) and
-                check([piece.colors[1] for piece in self._face(DOWN)]) and
-                check([piece.colors[0] for piece in self._face(LEFT)]) and
-                check([piece.colors[0] for piece in self._face(RIGHT)]))
-
-    def _face(self, axis):
-        """
-        :param axis: One of LEFT, RIGHT, UP, DOWN, FRONT, BACK 
-        :return: A list of Pieces on the given face
-        """
-        assert axis.count(0) == 2
-        return [p for p in self.pieces if p.pos.dot(axis) > 0]
-
-    def _slice(self, plane):
-        """
-        :param plane: A sum of any two of X_AXIS, Y_AXIS, Z_AXIS (e.g. X_AXIS + Y_AXIS)
-        :return: A list of Pieces in the given plane
-        """
-        assert plane.count(0) == 1
-        i = next((i for i, x in enumerate(plane) if x == 0))
-        return [p for p in self.pieces if p.pos[i] == 0]
-
-    def _rotate_face(self, face, matrix):
-        self._rotate_pieces(self._face(face), matrix)
-
-    def _rotate_slice(self, plane, matrix):
-        self._rotate_pieces(self._slice(plane), matrix)
-
-    def _rotate_pieces(self, pieces, matrix):
-        for piece in pieces:
-            piece.rotate(matrix)
-
-    # Rubik's Cube Notation: http://ruwix.com/the-rubiks-cube/notation/
-    def L(self): self._rotate_face(LEFT, ROT_YZ_CC)
-    def Li(self): self._rotate_face(LEFT, ROT_YZ_CW)
-    def R(self): self._rotate_face(RIGHT, ROT_YZ_CW)
-    def Ri(self): self._rotate_face(RIGHT, ROT_YZ_CC)
-    def U(self): self._rotate_face(UP, ROT_XZ_CW)
-    def Ui(self): self._rotate_face(UP, ROT_XZ_CC)
-    def D(self): self._rotate_face(DOWN, ROT_XZ_CC)
-    def Di(self): self._rotate_face(DOWN, ROT_XZ_CW)
-    def F(self): self._rotate_face(FRONT, ROT_XY_CW)
-    def Fi(self): self._rotate_face(FRONT, ROT_XY_CC)
-    def B(self): self._rotate_face(BACK, ROT_XY_CC)
-    def Bi(self): self._rotate_face(BACK, ROT_XY_CW)
-    def M(self): self._rotate_slice(Y_AXIS + Z_AXIS, ROT_YZ_CC)
-    def Mi(self): self._rotate_slice(Y_AXIS + Z_AXIS, ROT_YZ_CW)
-    def E(self): self._rotate_slice(X_AXIS + Z_AXIS, ROT_XZ_CC)
-    def Ei(self): self._rotate_slice(X_AXIS + Z_AXIS, ROT_XZ_CW)
-    def S(self): self._rotate_slice(X_AXIS + Y_AXIS, ROT_XY_CW)
-    def Si(self): self._rotate_slice(X_AXIS + Y_AXIS, ROT_XY_CC)
-    def X(self): self._rotate_pieces(self.pieces, ROT_YZ_CW)
-    def Xi(self): self._rotate_pieces(self.pieces, ROT_YZ_CC)
-    def Y(self): self._rotate_pieces(self.pieces, ROT_XZ_CW)
-    def Yi(self): self._rotate_pieces(self.pieces, ROT_XZ_CC)
-    def Z(self): self._rotate_pieces(self.pieces, ROT_XY_CW)
-    def Zi(self): self._rotate_pieces(self.pieces, ROT_XY_CC)
-
-    def sequence(self, move_str):
-        """
-        :param moves: A string containing notated moves separated by spaces: "L Ri U M Ui B M"
-        """
-        moves = [getattr(self, name) for name in move_str.split()]
-        for move in moves:
-            move()
-
-    def find_piece(self, *colors):
-        if None in colors:
-            return
-        for p in self.pieces:
-            if p.colors.count(None) == 3 - len(colors) \
-                and all(c in p.colors for c in colors):
-                return p
-
-    def get_piece(self, x, y, z):
-        """
-        :return: the Piece at the given Point
-        """
-        point = Point(x, y, z)
-        for p in self.pieces:
-            if p.pos == point:
-                return p
-
-    def __getitem__(self, *args):
-        if len(args) == 1:
-            return self.get_piece(*args[0])
-        return self.get_piece(*args)
-
-    def __eq__(self, other):
-        return isinstance(other, Cube) and str(self) == str(other)
-
-    def __ne__(self, other):
-        return not (self == other)
-
-    def colors(self):
-        """
-        :return: A set containing the colors of all stickers on the cube
-        """
-        result = set(c for piece in self.pieces for c in piece.colors)
-        result.remove(None)
-        return result
-
-    def left_color(self): return self[LEFT].colors[0]
-    def right_color(self): return self[RIGHT].colors[0]
-    def up_color(self): return self[UP].colors[1]
-    def down_color(self): return self[DOWN].colors[1]
-    def front_color(self): return self[FRONT].colors[2]
-    def back_color(self): return self[BACK].colors[2]
-
-    def _color_list(self):
-        right = [p.colors[0] for p in sorted(self._face(RIGHT), key=lambda p: (-p.pos.y, -p.pos.z))]
-        left  = [p.colors[0] for p in sorted(self._face(LEFT),  key=lambda p: (-p.pos.y, p.pos.z))]
-        up    = [p.colors[1] for p in sorted(self._face(UP),    key=lambda p: (p.pos.z, p.pos.x))]
-        down  = [p.colors[1] for p in sorted(self._face(DOWN),  key=lambda p: (-p.pos.z, p.pos.x))]
-        front = [p.colors[2] for p in sorted(self._face(FRONT), key=lambda p: (-p.pos.y, p.pos.x))]
-        back  = [p.colors[2] for p in sorted(self._face(BACK),  key=lambda p: (-p.pos.y, -p.pos.x))]
-
-        return (up + left[0:3] + front[0:3] + right[0:3] + back[0:3]
-                   + left[3:6] + front[3:6] + right[3:6] + back[3:6]
-                   + left[6:9] + front[6:9] + right[6:9] + back[6:9] + down)
-
-    def flat_str(self):
-        return "".join(x for x in str(self) if x not in string.whitespace)
-
+    def move(self, move):
+        moves = {
+            'F': self.rotate_front,
+            "F'": self.rotate_reverse_front,
+            'U': self.rotate_up,
+            "U'": self.rotate_reverse_up,
+            'L': self.rotate_left,
+            "L'": self.rotate_reverse_left,
+            'R': self.rotate_right,
+            "R'": self.rotate_reverse_right,
+            'D': self.rotate_down,
+            "D'": self.rotate_reverse_down,
+            'B': self.rotate_back,
+            "B'": self.rotate_reverse_back
+        }
+        moves[move]()
+            # case 'U':  monthString = "January";
+            #          break;
+            # case "U'":  monthString = "February";
+            #          break;
+            # case 'R':  monthString = "March";
+            #          break;
+            # case "R'":  monthString = "April";
+            #          break;
+            # case 'F':  self.rotate_front();
+            #          break;
+            # case "F'":  monthString = "April";
+            #          break;
+            # case 'D':  monthString = "March";
+            #          break;
+            # case "D'":  monthString = "April";
+            #          break;
+            # case 'L':  monthString = "March";
+            #          break;
+            # case "L'":  monthString = "April";
+            #          break;
+            # case 'B':  monthString = "March";
+            #          break;
+            # case "B'":  monthString = "April";
+            #          break;
     def __str__(self):
-        template = ("    {0}{1}{2}\n"
-                    "    {3}{4}{5}\n"
-                    "    {6}{7}{8}\n"
-                    "{9}{10}{11} {12}{13}{14} {15}{16}{17} {18}{19}{20}\n"
-                    "{21}{22}{23} {24}{25}{26} {27}{28}{29} {30}{31}{32}\n"
-                    "{33}{34}{35} {36}{37}{38} {39}{40}{41} {42}{43}{44}\n"
-                    "    {45}{46}{47}\n"
-                    "    {48}{49}{50}\n"
-                    "    {51}{52}{53}")
-
-        return "    " + textwrap.dedent(template).format(*self._color_list()).strip()
-
-
-if __name__ == '__main__':
-    cube = Cube("    DLU\n"
-                "    RRD\n"
-                "    FFU\n"
-                "BBL DDR BRB LDL\n"
-                "RBF RUU LFB DDU\n"
-                "FBR BBR FUD FLU\n"
-                "    DLU\n"
-                "    ULF\n"
-                "    LFR")
-    print(cube)
+        return "".join(self.state)
+    def is_solved(self):
+        if "".join(self.state) == self.solved:
+            return True
+        return False

@@ -1,3 +1,4 @@
 /train
 /rubik/train.csv
 /logs
+/supervised_model1.h5
